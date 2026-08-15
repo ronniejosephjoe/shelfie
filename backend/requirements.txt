@@ -1,0 +1,22 @@
+# Core
+Django==5.2.17
+djangorestframework==3.18.0
+django-cors-headers==4.9.0
+python-dotenv==1.1.1
+
+# Matching
+rapidfuzz==3.14.5
+Unidecode==1.4.0
+
+# Imaging / local model / OCR
+Pillow==12.3.0
+opencv-python-headless==5.0.0.93
+numpy==2.2.6
+pytesseract==0.3.13
+
+# Hosted VLM client
+openai==3.1.0
+
+# Tests
+pytest==9.1.1
+pytest-django==4.14.0

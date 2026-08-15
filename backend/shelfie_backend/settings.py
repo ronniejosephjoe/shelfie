@@ -1,0 +1,132 @@
+"""
+Django settings for shelfie_backend.
+
+Kept deliberately small: this is an 8-hour take-home, not a production
+service. No auth, no deployment config — see README for what was cut
+and why.
+"""
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-secret-key-not-for-production")
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
+
+# Wide open on purpose: this runs on a laptop for a demo, reached from an
+# Expo app on the same LAN. Not something to ship as-is.
+ALLOWED_HOSTS = ["*"]
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "corsheaders",
+    "catalog",
+    "scanner",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+# Dev-only: the Expo app is served from a Metro dev server on an
+# arbitrary LAN address/port, so we can't pin an origin list ahead of time.
+CORS_ALLOW_ALL_ORIGINS = True
+
+ROOT_URLCONF = "shelfie_backend.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "shelfie_backend.wsgi.application"
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = "static/"
+
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+REST_FRAMEWORK = {
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.MultiPartParser",
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+    ],
+    # No auth: out of scope for this exercise (see README -> "What we cut").
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.AllowAny"],
+}
+
+# --- Shelfie-specific config -------------------------------------------
+# Catalog CSV lives at the repo root so it's easy to find and diff.
+CATALOG_CSV_PATH = os.environ.get(
+    "CATALOG_CSV_PATH", str(BASE_DIR.parent / "catalog.csv")
+)
+
+# Confidence thresholds used by catalog.matching.MatchResult classification.
+# See catalog/matching.py for how the score itself is computed.
+MATCH_AUTO_ACCEPT_THRESHOLD = float(os.environ.get("MATCH_AUTO_ACCEPT_THRESHOLD", "0.86"))
+MATCH_REVIEW_THRESHOLD = float(os.environ.get("MATCH_REVIEW_THRESHOLD", "0.55"))
+
+# Hosted vision-language model. See scanner/services/vlm_client.py.
+VLM_PROVIDER = os.environ.get("VLM_PROVIDER", "mock")  # "openai" or "mock"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "gpt-4o-mini")
+VLM_TIMEOUT_SECONDS = float(os.environ.get("VLM_TIMEOUT_SECONDS", "20"))
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "shelfie": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
+    },
+}
