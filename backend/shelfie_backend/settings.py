@@ -141,7 +141,7 @@ OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "gpt-4o-mini")
 # aistudio.google.com), added specifically because OpenAI's API
 # requires billing to be enabled with no free quota. See vlm_client.py.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_VISION_MODEL = os.environ.get("GEMINI_VISION_MODEL", "gemini-3.6-flash")
+GEMINI_VISION_MODEL = os.environ.get("GEMINI_VISION_MODEL", "gemini-3.1-flash-lite")
 # Free-tier calls are $0 regardless of what GEMINI_PRICING_PER_1M says;
 # set this once you've actually enabled billing on the Google account,
 # so estimated_cost_usd stays honest instead of guessing paid-tier

@@ -28,7 +28,7 @@ class GeminiVisionClientTests(TestCase):
         # tests run at full speed; throttling itself is covered by its
         # own test below with time.sleep mocked out.
         self.client = GeminiVisionClient(
-            api_key="fake-key", model="gemini-3.6-flash", timeout=5, min_call_interval=0
+            api_key="fake-key", model="gemini-3.1-flash-lite", timeout=5, min_call_interval=0
         )
 
     @patch("requests.post")
@@ -139,7 +139,7 @@ class GeminiVisionClientTests(TestCase):
     def test_proactive_throttle_waits_between_calls(self, mock_sleep):
         import requests
 
-        client = GeminiVisionClient(api_key="fake-key", model="gemini-3.6-flash", timeout=5, min_call_interval=4.5)
+        client = GeminiVisionClient(api_key="fake-key", model="gemini-3.1-flash-lite", timeout=5, min_call_interval=4.5)
         client._last_call_at = __import__("time").monotonic()  # pretend a call just happened
 
         with patch("requests.post") as mock_post:

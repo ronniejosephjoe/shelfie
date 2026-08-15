@@ -16,18 +16,23 @@ Three implementations behind one interface:
     for a strong price/latency/accuracy balance among paid hosted
     multimodal models at time of writing. Requires OPENAI_API_KEY and
     a funded/billed OpenAI account.
-  - GeminiVisionClient: Google's Gemini API (gemini-3.6-flash by
+  - GeminiVisionClient: Google's Gemini API (gemini-3.1-flash-lite by
     default). Added specifically because Google AI Studio offers a
     genuine no-credit-card free tier for Flash-class models -- the
     lower-friction option if you don't already have a funded API
     account. Requires GEMINI_API_KEY (get one free at
     aistudio.google.com, no billing setup needed for the free tier).
-    The free tier is rate-limited to single-digit-to-teens requests
-    per minute (Google's published quotas vary by model), which this
-    client actively manages -- see its class docstring below. This was
-    found by actually running a 26-spine real photo through it: every
-    call after the first several came back HTTP 429, not by reading
-    the docs first.
+    Free-tier quotas vary a lot by model and are not just an RPM
+    number -- the first model tried here (gemini-3.6-flash) turned out
+    to have a hard 20-requests-*per day* free-tier cap (confirmed via
+    the API's own 429 error body, which names the exact quota:
+    "GenerateRequestsPerDayPerProjectPerModel-FreeTier", value 20),
+    which no amount of retry/backoff can wait out. gemini-3.1-flash-lite
+    -- Google's actual budget-tier free model -- has a far more usable
+    daily allowance and was verified against a real key before being
+    made the default. This client still manages per-minute throttling
+    and 429 backoff for whichever model is configured -- see its class
+    docstring below.
   - MockVLMClient: offline stand-in used when neither is configured
     (VLM_PROVIDER=mock, the default). Runs local Tesseract OCR on the
     crop as a rough approximation so the full pipeline is demoable
@@ -223,6 +228,7 @@ class OpenAIVisionClient:
 # estimated_cost_usd is 0.0 unless GEMINI_BILLING_ENABLED is set,
 # signaling you've moved off the free tier for real.
 GEMINI_PRICING_PER_1M = {
+    "gemini-3.1-flash-lite": {"input": 0.25, "output": 1.50},
     "gemini-3.6-flash": {"input": 1.50, "output": 7.50},
 }
 
@@ -233,14 +239,19 @@ class GeminiVisionClient:
     for a single endpoint). Added because Google AI Studio's free tier
     needs no credit card, which OpenAI's does -- see README.
 
-    Free-tier quotas are low (single-digit-to-teens requests per
-    minute, depending on model and account) and this pipeline reads
-    every detected spine one at a time in a loop -- a single shelf
-    photo with a dozen-plus books will blow through that quota well
-    before the scan finishes. Found by actually running a real
-    26-spine photo through this: every call from roughly the sixth
-    onward came back HTTP 429. Two mitigations, both here rather than
-    in the pipeline, so they apply no matter who calls this client:
+    Free-tier quotas are model-specific and can be a hard daily cap,
+    not just a per-minute rate -- gemini-3.6-flash's free tier turned
+    out to allow only 20 requests/day total, which no in-request
+    retry can wait out (confirmed directly against the API: a 429
+    body naming quotaId "GenerateRequestsPerDayPerProjectPerModel-
+    FreeTier", value 20). gemini-3.1-flash-lite, the default here, has
+    a much more usable daily allowance, verified against a real key.
+    Per-minute throttling still matters even on a generous daily quota
+    -- this pipeline reads every detected spine one at a time in a
+    loop, and a single shelf photo with a dozen-plus books can still
+    burst past an RPM limit even while comfortably under the daily
+    one. Two mitigations, both here rather than in the pipeline, so
+    they apply no matter who calls this client:
 
       1. Proactive throttling (min_call_interval / GEMINI_MIN_CALL_
          INTERVAL_SECONDS): space calls out so most requests never hit
