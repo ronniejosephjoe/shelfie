@@ -71,6 +71,12 @@ def _crop(image_bgr: np.ndarray, region) -> Image.Image:
     return Image.fromarray(cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB))
 
 
+class PipelineInputError(Exception):
+    """Raised for problems with the input itself (bad image, etc.) --
+    handled identically to an unexpected crash (status -> failed with a
+    message) but keeps the two situations distinguishable in logs."""
+
+
 def run_pipeline(scan_session: ScanSession) -> ScanSession:
     scan_session.status = "processing"
     scan_session.save(update_fields=["status"])
@@ -78,6 +84,9 @@ def run_pipeline(scan_session: ScanSession) -> ScanSession:
     try:
         _run_pipeline_inner(scan_session)
         scan_session.status = "done"
+    except PipelineInputError as exc:
+        scan_session.status = "failed"
+        scan_session.error_message = str(exc)
     except Exception as exc:  # last-resort net -- see module docstring
         logger.exception("pipeline crashed for scan %s", scan_session.id)
         scan_session.status = "failed"
@@ -94,9 +103,7 @@ def run_pipeline(scan_session: ScanSession) -> ScanSession:
 def _run_pipeline_inner(scan_session: ScanSession) -> None:
     image_bgr = _load_bgr(scan_session)
     if image_bgr is None:
-        scan_session.error_message = "Could not decode the uploaded image. Is it a valid photo file?"
-        scan_session.status = "failed"
-        return
+        raise PipelineInputError("Could not decode the uploaded image. Is it a valid photo file?")
 
     # --- Stage 1: local model finds candidate spine regions -----------
     t0 = time.perf_counter()
