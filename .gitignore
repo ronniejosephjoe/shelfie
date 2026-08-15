@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Django
+backend/media/
+backend/staticfiles/
+db.sqlite3
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+npm-debug.*
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
+
+# Model weights (downloaded at setup time, not vendored)
+*.pt
+
+# Editor
+.vscode/
+.idea/
