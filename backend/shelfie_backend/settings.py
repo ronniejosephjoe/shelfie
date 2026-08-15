@@ -13,6 +13,23 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+# pytesseract shells out to the tesseract binary, passing it an image via
+# a temp file written through Python's tempfile module -- which defaults
+# to $TMPDIR, or plain /tmp if that's unset. On macOS, /tmp is a symlink
+# to /private/tmp, and at least one real Homebrew tesseract/Leptonica
+# build we tested against (found by actually running this against a real
+# Mac, not by inspection) fails to read temp files through that symlink
+# in some shell contexts, silently returning zero OCR results -- which
+# spine_detector.py's broad except-and-return-[] then reports as "no
+# spines found" instead of the environment bug it actually is. Pointing
+# tempfile at a real (non-symlinked) directory inside the project sidesteps
+# it entirely, regardless of what TMPDIR happens to be in the parent shell.
+import tempfile as _tempfile  # noqa: E402
+
+_SAFE_TMP_DIR = BASE_DIR / "tmp"
+_SAFE_TMP_DIR.mkdir(exist_ok=True)
+_tempfile.tempdir = str(_SAFE_TMP_DIR)
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-secret-key-not-for-production")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 

@@ -10,6 +10,7 @@ env/
 
 # Django
 backend/media/
+backend/tmp/
 backend/staticfiles/
 db.sqlite3
 

@@ -235,6 +235,22 @@ the two `The Alchemist` entries, and when no author was read at all,
 the matcher correctly reports a near-tie between them rather than
 guessing).
 
+## Troubleshooting
+
+**Local model finds zero spines on every photo, on macOS.** This bit me
+during my own live test of this exact repo on a Mac (not a hypothetical
+-- see the commit that added `settings.py`'s `_SAFE_TMP_DIR`): macOS's
+`/tmp` is a symlink to `/private/tmp`, and at least one Homebrew
+tesseract/Leptonica build silently fails to read temp files written
+through that symlink in some shell contexts, which `spine_detector.py`'s
+graceful-failure handling then reports as "no spines found" instead of
+surfacing as the environment bug it actually is. `settings.py` already
+works around this by pointing Python's `tempfile` module at
+`backend/tmp/` (a real directory inside the project) instead of trusting
+whatever `$TMPDIR` resolves to -- if you're running an older clone
+without that fix, `git pull` or check `shelfie_backend/settings.py` for
+`_SAFE_TMP_DIR`.
+
 ## Key decisions and tradeoffs
 
 - **Local model: Tesseract-based localization, not a COCO object
