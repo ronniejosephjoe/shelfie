@@ -149,16 +149,24 @@ Full numbers and methodology in `docs/latency_cost_notes.md`
 | Local model (Tesseract, 3 rotation passes) | ~91ms / detected region, ~340ms / photo | **Measured**, this machine, CPU only |
 | Local model recall | ~40-50% of painted spines detected on the test photos | **Measured** -- see below, the least flattering number in this repo |
 | Hosted VLM cost (gpt-4o-mini) | ~$0.0013 / spine read (~1.3 cents for a 10-book shelf) | **Calculated** from OpenAI's published pricing ($0.15/$0.60 per 1M tokens) and image-tokenization formula (2833 + 5667/tile; every crop here is 1 tile) |
-| Hosted VLM latency | ~1-3s / call (typical) | **Estimated** from published/community reports, not measured live -- no funded API key in this build environment |
+| Hosted VLM latency (gpt-4o-mini) | ~1-3s / call (typical) | **Estimated** from published/community reports, not measured live -- no OpenAI key used in this build |
+| Hosted VLM read + cost (Gemini free tier, `gemini-3.1-flash-lite`) | 26 spines: 22 successful reads, 3 unreadable, 1 timeout, 0 rate-limited; ~7.4s/call incl. throttle; **$0.00** (free tier) | **Measured**, real key, real photo (`photos/pexels-photo-19582452.jpg`) -- see `docs/latency_cost_notes.md` for the full run, including the wrong-model-first-try story |
 
 I did not have a funded `OPENAI_API_KEY` while building this, so the
-VLM numbers above are calculated/estimated, not measured, and the
-`docs/latency_cost_notes.md` file says so explicitly next to each one
-rather than presenting everything with the same false precision.
-`OpenAIVisionClient` computes `estimated_cost_usd` from the real
-`response.usage` on every call, so the moment a real key is added the
-number in the UI and in `ScanSession.estimated_cost_usd` becomes an
-actual measurement using the same code path, not a different one.
+OpenAI row above is calculated/estimated, not measured, and
+`docs/latency_cost_notes.md` says so explicitly next to each number
+rather than presenting everything with the same false precision. The
+Gemini row, by contrast, is a real measurement against a real free-tier
+key -- including a genuine failure found only by doing that: the
+first model tried (`gemini-3.6-flash`) turned out to cap free-tier
+usage at **20 requests per day**, confirmed directly from the API's own
+error body, not documentation. `gemini-3.1-flash-lite` (now the
+default) was verified against the same key before being adopted.
+`OpenAIVisionClient` and `GeminiVisionClient` both compute
+`estimated_cost_usd` from the real response on every call, so the
+number in the UI and in `ScanSession.estimated_cost_usd` is always an
+actual measurement for whichever provider is actually configured, not
+a different code path than what's described here.
 
 ### Local vs. hosted routing, and why the split is where it is
 
@@ -194,20 +202,30 @@ YOLOv8n (or a similarly small COCO detector) behind the same
 The hosted VLM client (`scanner/services/vlm_client.py`) supports two
 real providers behind one interface, picked via `VLM_PROVIDER`:
 `openai` (`gpt-4o-mini` by default, configurable via
-`OPENAI_VISION_MODEL`) and `gemini` (`gemini-3.6-flash` by default,
-configurable via `GEMINI_VISION_MODEL`). Gemini was added specifically
-because Google AI Studio offers a genuine no-credit-card free tier for
-Flash-class models, which OpenAI's API does not -- the lower-friction
-option if you don't already have a funded API account. Both are
+`OPENAI_VISION_MODEL`) and `gemini` (`gemini-3.1-flash-lite` by
+default, configurable via `GEMINI_VISION_MODEL`). Gemini was added
+specifically because Google AI Studio offers a genuine no-credit-card
+free tier for Flash-class models, which OpenAI's API does not -- the
+lower-friction option if you don't already have a funded API account.
+That default model wasn't the first one tried: `gemini-3.6-flash`
+looked reasonable from the model list but its free tier turned out to
+allow only 20 requests/day (found by actually running a 26-spine real
+photo through it and reading the 429 error body, which names the exact
+quota), which no client-side retry/backoff can wait out for a scan
+that needs more calls than that in one run. `GeminiVisionClient` also
+proactively throttles calls (`GEMINI_MIN_CALL_INTERVAL_SECONDS`) and
+retries a bounded number of times on a transient 429 before reporting
+a distinct `rate_limited` error -- see its docstring and
+`docs/latency_cost_notes.md` for the full story. Both providers are
 implemented and unit-tested (`scanner/tests/test_vlm_client.py`
 mocks the network layer to exercise success, malformed JSON, safety-
-blocked/empty responses, HTTP errors, and timeouts for each). When
-`VLM_PROVIDER=mock` (the default, and what runs with zero setup or API
-key) it falls back to a single Tesseract OCR pass on the crop instead
--- clearly worse than a real hosted read, and its confidence is hard-
-capped below the auto-accept threshold so a
-mock read can never sneak through as a silent auto-add. This exists so
-the full pipeline, including the review screen, is demoable without any
+blocked/empty responses, HTTP errors, rate limits, and timeouts for
+each). When `VLM_PROVIDER=mock` (the default, and what runs with zero
+setup or API key) it falls back to a single Tesseract OCR pass on the
+crop instead -- clearly worse than a real hosted read, and its
+confidence is hard-capped below the auto-accept threshold so a mock
+read can never sneak through as a silent auto-add. This exists so the
+full pipeline, including the review screen, is demoable without any
 key.
 
 ## How the catalog was built
@@ -315,14 +333,26 @@ without that fix, `git pull` or check `shelfie_backend/settings.py` for
   handful of spines; a full shelf would benefit from calling them
   concurrently (`asyncio`/`concurrent.futures`) rather than the current
   for-loop in `pipeline.py`.
-- **No real hosted-VLM numbers yet.** Everything VLM-side in this repo
-  was built and unit-tested against mocked responses (both providers --
-  see `scanner/tests/test_vlm_client.py`), but as of writing I have not
-  seen either one read a real photo. Both `openai` and `gemini` are
-  wired up and one command away from real numbers (`gemini` needs only
-  a free aistudio.google.com key, no billing) -- rerun
-  `scripts/bench_pipeline.py` with `VLM_PROVIDER` set for real and
-  replace the estimates in `docs/latency_cost_notes.md`.
+- **`openai` still has no real measured numbers.** `gemini` now does
+  (see the table above and `docs/latency_cost_notes.md`) -- a real
+  free-tier key against a real 26-spine photo, including finding and
+  fixing a hard daily-quota wall on the first model tried. `openai`
+  remains unit-tested against mocked responses only
+  (`scanner/tests/test_vlm_client.py`); one command away from real
+  numbers with a funded `OPENAI_API_KEY` -- rerun
+  `scripts/bench_pipeline.py` with `VLM_PROVIDER=openai` and replace
+  the estimate in `docs/latency_cost_notes.md`.
+- **Catalog has essentially no nonfiction/history coverage**, found by
+  running a real nonfiction-heavy shelf through the live pipeline:
+  every one of 22 successful Gemini reads was a real, correctly-read
+  book (`"The Decline and Fall of the Roman Empire"` / Edward Gibbon,
+  `"Billy Bathgate"` / E.L. Doctorow, etc.), and every single one
+  landed `unmatched` or weak `review`, purely because `catalog.csv`'s
+  134 entries are bestseller/genre-fiction-weighted (see "How the
+  catalog was built" above). This is a content gap, not a matching or
+  detection bug -- the confidence thresholds correctly kept these weak
+  guesses out of auto-accept. Widening the catalog to include the
+  actual titles read from this photo would be a quick, honest fix.
 - **Crops aren't resized before the VLM call.** Every crop in the test
   photos is small enough to stay at 1 tile under gpt-4o-mini's pricing,
   but a real high-resolution phone photo's crops could be larger,

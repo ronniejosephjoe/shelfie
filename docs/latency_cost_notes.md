@@ -67,6 +67,78 @@ and `VLM_PROVIDER=openai` in `.env` to get that; `OpenAIVisionClient`
 already records `latency_ms` and `estimated_cost_usd` per call from the
 live response, no code changes needed.
 
+## VLM reads and cost (measured, real -- Gemini free tier, actual key)
+
+Unlike every other VLM number in this doc, this one is a real live
+measurement: `VLM_PROVIDER=gemini` against a real (free-tier)
+`GEMINI_API_KEY`, run against `photos/pexels-photo-19582452.jpg` -- an
+actual phone-camera bookshelf photo, not one of the four synthetic
+test photos above.
+
+Two real problems surfaced only by doing this, not by reading docs:
+
+1. **First attempt used `gemini-3.6-flash` and failed almost
+   entirely.** 26 spines detected -> 26 sequential VLM calls -> every
+   call from roughly the sixth onward came back HTTP 429. The error
+   body named the exact quota:
+   `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, value **20**
+   -- a hard 20-requests-*per day* cap for that specific model on the
+   free tier, not a per-minute rate. No amount of in-request
+   retry/backoff can wait that out. This is now handled two ways in
+   `GeminiVisionClient` (see its docstring in `vlm_client.py`):
+   proactive throttling between calls (`GEMINI_MIN_CALL_INTERVAL_SECONDS`,
+   default 4.5s) plus a bounded retry-with-backoff on 429 that honors
+   the API's `Retry-After` hint -- and a distinct `error="rate_limited"`
+   classification once retries are exhausted, instead of lumping it
+   into the generic `api_error` bucket.
+2. **Switched the default model to `gemini-3.1-flash-lite`** after
+   verifying it directly against the same real key: correct read on
+   the first test crop (`{"title": "God", "author": "Reza Aslan"}`,
+   matching the actual spine), and a free-tier daily allowance that
+   comfortably covers a 26-spine scan where `gemini-3.6-flash`'s did
+   not. `gemini-2.5-flash` was also tried and rejected -- returns
+   `404 This model ... is no longer available to new users`.
+
+Full run against the real photo, post-fix, `gemini-3.1-flash-lite`:
+
+```
+local_model_ms    : 1387.3   (Tesseract detection, 26 regions found)
+vlm_call_count    : 26
+vlm_total_ms      : 192118.1  (includes ~4.5s/call proactive throttle --
+                                see below for what that buys)
+estimated_cost_usd: 0.00     (free tier; GEMINI_BILLING_ENABLED=false)
+
+read outcomes: 22 successful reads, 3 "unreadable" (blank/no
+candidates -- likely spine crops with no legible text, e.g. a
+cluster-merge artifact), 1 "timeout", 0 "rate_limited"
+```
+
+The 22 successful reads are real, specific, and correct as far as they
+can be checked by eye against a general-nonfiction/political-history
+shelf: `"A Thousand Days"` / Arthur M. Schlesinger Jr., `"The Decline
+and Fall of the Roman Empire"` / Edward Gibbon, `"Billy Bathgate"` /
+E.L. Doctorow, `"A Farewell to Arms"` / Ernest Hemingway, `"The Burden
+of Proof"` / Scott Turow, `"Statistics: An Introductory Analysis"` /
+Taro Yamane -- all real, correctly-titled books, none of them
+mis-transcribed nonsense.
+
+**None of them auto-matched, and this is a catalog coverage problem,
+not a pipeline bug.** `catalog.csv`'s 134 entries are deliberately
+bestseller/genre-fiction-weighted (see `scripts/build_catalog.py`) --
+Game of Thrones, Klara and the Sun, 1984, Educated, Atomic Habits,
+Lord of the Rings. A shelf of 1960s-80s political history and
+statistics texts has essentially no real overlap with that catalog, so
+`match_catalog()` correctly reports its best (weak) guess and the
+review-tier thresholds correctly keep those guesses out of
+auto-accept -- e.g. `"The Decline and Fall of the Roman Empire"`
+scored 0.48 against `"A Song of Ice and Fire"` and landed
+`unmatched`, which is the right call given no real match exists in
+this catalog. Widening `catalog.csv` to include nonfiction/history
+titles (several of the exact ones read above would be a natural start)
+would fix this for real without touching any matching or detection
+code -- flagged as unfinished, not done here, since it's a content
+decision rather than a bug fix.
+
 ## VLM cost (calculated from OpenAI's published pricing/tokenization, not measured live)
 
 Pricing as of when this was written (August 2026): gpt-4o-mini is
