@@ -24,7 +24,12 @@ def _tiny_image():
 
 class GeminiVisionClientTests(TestCase):
     def setUp(self):
-        self.client = GeminiVisionClient(api_key="fake-key", model="gemini-3.6-flash", timeout=5)
+        # min_call_interval=0 disables proactive throttling so these
+        # tests run at full speed; throttling itself is covered by its
+        # own test below with time.sleep mocked out.
+        self.client = GeminiVisionClient(
+            api_key="fake-key", model="gemini-3.6-flash", timeout=5, min_call_interval=0
+        )
 
     @patch("requests.post")
     def test_successful_read(self, mock_post):
@@ -82,10 +87,80 @@ class GeminiVisionClientTests(TestCase):
         self.assertEqual(result.error, "malformed_json")
 
     @patch("requests.post")
-    def test_http_error_status(self, mock_post):
-        mock_post.return_value = MagicMock(status_code=429, text="rate limited")
+    def test_non_429_http_error_status(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=500, text="server error")
         result = self.client.read_spine(_tiny_image())
         self.assertEqual(result.error, "api_error")
+
+    @patch("time.sleep")
+    @patch("requests.post")
+    def test_429_retries_then_reports_rate_limited_once_exhausted(self, mock_post, mock_sleep):
+        # Free-tier quota exceeded and staying exceeded for the whole
+        # retry budget: this must come back as a distinct, honest
+        # "rate_limited" error -- not a generic api_error, and not a
+        # crash -- after trying (1 initial + _MAX_RETRIES) times.
+        mock_post.return_value = MagicMock(status_code=429, text="quota exceeded", headers={})
+        result = self.client.read_spine(_tiny_image())
+        self.assertEqual(result.error, "rate_limited")
+        self.assertEqual(mock_post.call_count, 1 + GeminiVisionClient._MAX_RETRIES)
+        self.assertEqual(mock_sleep.call_count, GeminiVisionClient._MAX_RETRIES)
+
+    @patch("time.sleep")
+    @patch("requests.post")
+    def test_429_then_success_recovers_within_retry_budget(self, mock_post, mock_sleep):
+        # A transient rate limit that clears on the next attempt should
+        # end in a normal successful read, not an error -- retrying is
+        # the whole point.
+        rate_limited = MagicMock(status_code=429, text="quota exceeded", headers={})
+        success = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "candidates": [
+                    {"content": {"parts": [{"text": '{"title": "Dune", "author": "Frank Herbert"}'}]}}
+                ],
+                "usageMetadata": {"promptTokenCount": 500, "candidatesTokenCount": 20},
+            },
+        )
+        mock_post.side_effect = [rate_limited, success]
+        result = self.client.read_spine(_tiny_image())
+        self.assertTrue(result.ok)
+        self.assertEqual(result.title, "Dune")
+        self.assertEqual(mock_post.call_count, 2)
+        self.assertEqual(mock_sleep.call_count, 1)
+
+    @patch("time.sleep")
+    @patch("requests.post")
+    def test_429_honors_retry_after_header(self, mock_post, mock_sleep):
+        mock_post.return_value = MagicMock(status_code=429, text="quota exceeded", headers={"Retry-After": "7"})
+        self.client.read_spine(_tiny_image())
+        mock_sleep.assert_called_with(7.0)
+
+    @patch("time.sleep")
+    def test_proactive_throttle_waits_between_calls(self, mock_sleep):
+        import requests
+
+        client = GeminiVisionClient(api_key="fake-key", model="gemini-3.6-flash", timeout=5, min_call_interval=4.5)
+        client._last_call_at = __import__("time").monotonic()  # pretend a call just happened
+
+        with patch("requests.post") as mock_post:
+            mock_post.return_value = MagicMock(
+                status_code=200,
+                json=lambda: {"candidates": [{"content": {"parts": [{"text": '{"title": "Dune"}'}]}}]},
+            )
+            client.read_spine(_tiny_image())
+
+        mock_sleep.assert_called_once()
+        waited = mock_sleep.call_args[0][0]
+        self.assertGreater(waited, 0)
+        self.assertLessEqual(waited, 4.5)
+
+    def test_min_call_interval_of_zero_never_throttles(self):
+        # self.client is built with min_call_interval=0 in setUp --
+        # calling _throttle() repeatedly must never sleep.
+        with patch("time.sleep") as mock_sleep:
+            self.client._throttle()
+            self.client._throttle()
+        mock_sleep.assert_not_called()
 
     @patch("requests.post")
     def test_timeout_is_classified_separately_from_other_errors(self, mock_post):

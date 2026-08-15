@@ -22,6 +22,12 @@ Three implementations behind one interface:
     lower-friction option if you don't already have a funded API
     account. Requires GEMINI_API_KEY (get one free at
     aistudio.google.com, no billing setup needed for the free tier).
+    The free tier is rate-limited to single-digit-to-teens requests
+    per minute (Google's published quotas vary by model), which this
+    client actively manages -- see its class docstring below. This was
+    found by actually running a 26-spine real photo through it: every
+    call after the first several came back HTTP 429, not by reading
+    the docs first.
   - MockVLMClient: offline stand-in used when neither is configured
     (VLM_PROVIDER=mock, the default). Runs local Tesseract OCR on the
     crop as a rough approximation so the full pipeline is demoable
@@ -30,9 +36,10 @@ Three implementations behind one interface:
     This is disclosed here and in AI_USAGE.md / README, not hidden.
 
 Graceful failure is the point of this module as much as the read
-itself: a timeout, a malformed/non-JSON response, or an empty read must
-turn into a DetectedBook row with read_error set -- never an exception
-that takes down the request, and never a silently-invented title.
+itself: a timeout, a malformed/non-JSON response, a rate limit, or an
+empty read must turn into a DetectedBook row with read_error set --
+never an exception that takes down the request, and never a
+silently-invented title.
 """
 from __future__ import annotations
 
@@ -67,7 +74,9 @@ class VLMReadResult:
     title: str = ""
     author: str = ""
     model_confidence: float | None = None
-    error: str = ""  # "" on success; "timeout" | "api_error" | "malformed_json" | "unreadable"
+    # "" on success; "timeout" | "api_error" | "malformed_json" |
+    # "unreadable" | "rate_limited"
+    error: str = ""
     latency_ms: float = 0.0
     estimated_cost_usd: float = 0.0
     provider: str = ""
@@ -222,20 +231,77 @@ class GeminiVisionClient:
     """Google Gemini API, called directly over REST (no SDK dependency
     -- one predictable POST is simpler than chasing SDK version churn
     for a single endpoint). Added because Google AI Studio's free tier
-    needs no credit card, which OpenAI's does -- see README."""
+    needs no credit card, which OpenAI's does -- see README.
+
+    Free-tier quotas are low (single-digit-to-teens requests per
+    minute, depending on model and account) and this pipeline reads
+    every detected spine one at a time in a loop -- a single shelf
+    photo with a dozen-plus books will blow through that quota well
+    before the scan finishes. Found by actually running a real
+    26-spine photo through this: every call from roughly the sixth
+    onward came back HTTP 429. Two mitigations, both here rather than
+    in the pipeline, so they apply no matter who calls this client:
+
+      1. Proactive throttling (min_call_interval / GEMINI_MIN_CALL_
+         INTERVAL_SECONDS): space calls out so most requests never hit
+         the limit in the first place. Defaults to 4.5s -- roughly 13
+         requests/minute, safely under the ~15 RPM ceiling of Google's
+         most generous free-tier Flash models as of writing, and
+         conservative for stricter ones. Set to 0 for a paid account
+         with no meaningful RPM ceiling.
+      2. Reactive backoff (_MAX_RETRIES): if a 429 slips through
+         anyway (quota resets don't align perfectly with a fixed
+         interval), back off and retry a bounded number of times,
+         honoring the API's Retry-After header when present, before
+         giving up and reporting error="rate_limited" -- a real,
+         visible failure rather than a silent bad read.
+    """
 
     provider_name = "gemini"
     _ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
-    def __init__(self, api_key: str | None = None, model: str | None = None, timeout: float | None = None):
+    _MAX_RETRIES = 2
+    _RETRY_BASE_DELAY_SECONDS = 4.0
+    _RETRY_MAX_DELAY_SECONDS = 20.0
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None,
+        timeout: float | None = None,
+        min_call_interval: float | None = None,
+    ):
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model = model or settings.GEMINI_VISION_MODEL
         self.timeout = timeout or settings.VLM_TIMEOUT_SECONDS
+        self.min_call_interval = (
+            settings.GEMINI_MIN_CALL_INTERVAL_SECONDS if min_call_interval is None else min_call_interval
+        )
+        # Instance state on purpose: get_vlm_client() builds one client
+        # per scan and this pipeline reuses it across every spine in
+        # that scan, which is exactly the sequence we need to space out.
+        self._last_call_at = 0.0
+
+    def _throttle(self) -> None:
+        if self.min_call_interval <= 0:
+            return
+        wait = self.min_call_interval - (time.monotonic() - self._last_call_at)
+        if wait > 0:
+            time.sleep(wait)
+
+    def _retry_delay(self, response, attempt: int) -> float:
+        retry_after = getattr(response, "headers", None)
+        retry_after = retry_after.get("Retry-After") if retry_after else None
+        if retry_after is not None:
+            try:
+                return min(float(retry_after), self._RETRY_MAX_DELAY_SECONDS)
+            except (TypeError, ValueError):
+                pass
+        return min(self._RETRY_BASE_DELAY_SECONDS * (2**attempt), self._RETRY_MAX_DELAY_SECONDS)
 
     def read_spine(self, crop: Image.Image) -> VLMReadResult:
         import requests
 
-        t0 = time.perf_counter()
         payload = {
             "contents": [
                 {
@@ -252,22 +318,46 @@ class GeminiVisionClient:
             ],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 200},
         }
-        try:
-            response = requests.post(
-                self._ENDPOINT.format(model=self.model),
-                params={"key": self.api_key},
-                json=payload,
-                timeout=self.timeout,
-            )
-        except requests.exceptions.Timeout:
-            elapsed = (time.perf_counter() - t0) * 1000
-            return VLMReadResult(error="timeout", latency_ms=elapsed, provider=self.provider_name)
-        except Exception as exc:
-            elapsed = (time.perf_counter() - t0) * 1000
-            logger.warning("Gemini VLM call failed (%s): %s", type(exc).__name__, exc)
-            return VLMReadResult(error="api_error", latency_ms=elapsed, provider=self.provider_name)
 
+        self._throttle()
+        t0 = time.perf_counter()
+        response = None
+        attempt = 0
+        while True:
+            try:
+                response = requests.post(
+                    self._ENDPOINT.format(model=self.model),
+                    params={"key": self.api_key},
+                    json=payload,
+                    timeout=self.timeout,
+                )
+            except requests.exceptions.Timeout:
+                self._last_call_at = time.monotonic()
+                elapsed = (time.perf_counter() - t0) * 1000
+                return VLMReadResult(error="timeout", latency_ms=elapsed, provider=self.provider_name)
+            except Exception as exc:
+                self._last_call_at = time.monotonic()
+                elapsed = (time.perf_counter() - t0) * 1000
+                logger.warning("Gemini VLM call failed (%s): %s", type(exc).__name__, exc)
+                return VLMReadResult(error="api_error", latency_ms=elapsed, provider=self.provider_name)
+
+            if response.status_code == 429 and attempt < self._MAX_RETRIES:
+                delay = self._retry_delay(response, attempt)
+                logger.info(
+                    "Gemini rate-limited (attempt %d/%d), backing off %.1fs",
+                    attempt + 1, self._MAX_RETRIES, delay,
+                )
+                time.sleep(delay)
+                attempt += 1
+                continue
+            break
+
+        self._last_call_at = time.monotonic()
         elapsed = (time.perf_counter() - t0) * 1000
+
+        if response.status_code == 429:
+            logger.warning("Gemini still rate-limited after %d retries", self._MAX_RETRIES)
+            return VLMReadResult(error="rate_limited", latency_ms=elapsed, provider=self.provider_name)
 
         if response.status_code != 200:
             logger.warning("Gemini API returned %s: %s", response.status_code, response.text[:300])

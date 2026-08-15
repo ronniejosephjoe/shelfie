@@ -148,6 +148,15 @@ GEMINI_VISION_MODEL = os.environ.get("GEMINI_VISION_MODEL", "gemini-3.6-flash")
 # rates against what might still be free traffic.
 GEMINI_BILLING_ENABLED = os.environ.get("GEMINI_BILLING_ENABLED", "false").lower() == "true"
 
+# Free-tier Gemini quotas are low (single-digit-to-teens requests per
+# minute) and the pipeline reads every detected spine sequentially --
+# found by actually running a 26-spine photo through it and watching
+# most calls come back 429 after the first several. This spaces calls
+# out proactively; see GeminiVisionClient's docstring in vlm_client.py
+# for the full reasoning and the reactive backoff that backs it up.
+# Set to 0 for a paid-tier account with no meaningful RPM ceiling.
+GEMINI_MIN_CALL_INTERVAL_SECONDS = float(os.environ.get("GEMINI_MIN_CALL_INTERVAL_SECONDS", "4.5"))
+
 VLM_TIMEOUT_SECONDS = float(os.environ.get("VLM_TIMEOUT_SECONDS", "20"))
 
 LOGGING = {
