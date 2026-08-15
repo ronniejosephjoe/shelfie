@@ -31,7 +31,7 @@ from catalog.catalog_store import get_catalog_entries
 from catalog.matching import match as match_catalog
 
 from ..models import DetectedBook, LibraryBook, ScanSession
-from .spine_detector import TesseractSpineDetector
+from .spine_detector import SpineRegion, TesseractSpineDetector
 from .vlm_client import get_vlm_client
 
 logger = logging.getLogger("shelfie")
@@ -40,6 +40,19 @@ logger = logging.getLogger("shelfie")
 # VLM read -- spine art/edges just outside the text often carry useful
 # context (author name in a different font size, etc).
 CROP_PADDING_FRACTION = 0.08
+
+# A modern phone photo is routinely 12-48 megapixels. Running three full
+# OCR passes (spine_detector.py rotates 0/90/270) at that resolution is
+# not just slow -- found by actually running a real 27.8MP photo through
+# this: ~13 seconds for detection alone, vs. ~340ms on the small test
+# photos -- it also seems to *hurt* detection quality, likely because
+# Tesseract's layout analysis starts treating fine print texture and
+# JPEG artifacts as separate text blocks at full resolution, producing
+# far more (and messier) regions than there are actual spines. Detection
+# only needs enough resolution to resolve spine-sized text blocks, not
+# to read individual letters -- that's the VLM's job, on a crop taken
+# from the *original* full-resolution image, not this downscaled copy.
+MAX_DETECTION_DIMENSION = 1600
 
 
 def _load_bgr(scan_session: ScanSession) -> np.ndarray | None:
@@ -69,6 +82,21 @@ def _crop(image_bgr: np.ndarray, region) -> Image.Image:
     y1 = min(h, int(region.y + region.height + pad_y))
     crop_bgr = image_bgr[y0:y1, x0:x1]
     return Image.fromarray(cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB))
+
+
+def _downscale_for_detection(image_bgr: np.ndarray) -> tuple[np.ndarray, float]:
+    """Returns (downscaled_image, scale_factor) where scale_factor maps
+    downscaled coordinates back to the original image (multiply by it).
+    No-op (scale 1.0) for images already under the cap."""
+    h, w = image_bgr.shape[:2]
+    longest_side = max(h, w)
+    if longest_side <= MAX_DETECTION_DIMENSION:
+        return image_bgr, 1.0
+    scale = MAX_DETECTION_DIMENSION / longest_side
+    resized = cv2.resize(
+        image_bgr, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA
+    )
+    return resized, 1.0 / scale
 
 
 class PipelineInputError(Exception):
@@ -106,10 +134,24 @@ def _run_pipeline_inner(scan_session: ScanSession) -> None:
         raise PipelineInputError("Could not decode the uploaded image. Is it a valid photo file?")
 
     # --- Stage 1: local model finds candidate spine regions -----------
+    # Detect against a downscaled copy (see MAX_DETECTION_DIMENSION's
+    # comment for why), then scale the resulting boxes back up so
+    # cropping below still pulls full-resolution regions from the
+    # original image for the VLM to read.
+    detection_image, rescale = _downscale_for_detection(image_bgr)
     t0 = time.perf_counter()
     detector = TesseractSpineDetector()
-    regions = detector.detect(image_bgr)
+    regions = detector.detect(detection_image)
     scan_session.local_model_ms = (time.perf_counter() - t0) * 1000
+    if rescale != 1.0:
+        regions = [
+            SpineRegion(
+                x=r.x * rescale, y=r.y * rescale,
+                width=r.width * rescale, height=r.height * rescale,
+                confidence=r.confidence,
+            )
+            for r in regions
+        ]
 
     if not regions:
         # Zero books detected is a normal, valid outcome -- not a
