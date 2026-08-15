@@ -11,16 +11,22 @@ actual justification for the local/hosted split, and it's why the local
 stage's job was narrowed to *localization* rather than reading (see
 spine_detector.py's docstring for the other half of this decision).
 
-Two implementations behind one interface:
-  - OpenAIVisionClient: real hosted call (OpenAI gpt-4o-mini vision by
-    default -- picked for a strong price/latency/accuracy balance
-    among hosted multimodal models at time of writing, see README for
-    measured numbers). Requires OPENAI_API_KEY.
-  - MockVLMClient: offline stand-in used when no key is configured
+Three implementations behind one interface:
+  - OpenAIVisionClient: OpenAI gpt-4o-mini vision by default -- picked
+    for a strong price/latency/accuracy balance among paid hosted
+    multimodal models at time of writing. Requires OPENAI_API_KEY and
+    a funded/billed OpenAI account.
+  - GeminiVisionClient: Google's Gemini API (gemini-3.6-flash by
+    default). Added specifically because Google AI Studio offers a
+    genuine no-credit-card free tier for Flash-class models -- the
+    lower-friction option if you don't already have a funded API
+    account. Requires GEMINI_API_KEY (get one free at
+    aistudio.google.com, no billing setup needed for the free tier).
+  - MockVLMClient: offline stand-in used when neither is configured
     (VLM_PROVIDER=mock, the default). Runs local Tesseract OCR on the
     crop as a rough approximation so the full pipeline is demoable
     without any API key or network call -- it is NOT a substitute for
-    the real hosted read and is visibly worse on rotated/stylized text.
+    a real hosted read and is visibly worse on rotated/stylized text.
     This is disclosed here and in AI_USAGE.md / README, not hidden.
 
 Graceful failure is the point of this module as much as the read
@@ -71,10 +77,14 @@ class VLMReadResult:
         return not self.error
 
 
-def _crop_to_data_url(crop: Image.Image) -> str:
+def _crop_to_jpeg_bytes(crop: Image.Image) -> bytes:
     buf = io.BytesIO()
     crop.convert("RGB").save(buf, format="JPEG", quality=90)
-    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    return buf.getvalue()
+
+
+def _crop_to_data_url(crop: Image.Image) -> str:
+    b64 = base64.b64encode(_crop_to_jpeg_bytes(crop)).decode("ascii")
     return f"data:image/jpeg;base64,{b64}"
 
 
@@ -100,8 +110,39 @@ def _extract_json(raw: str) -> dict | None:
     return None
 
 
+def _parsed_to_result(parsed: dict | None, elapsed: float, cost: float, provider: str) -> VLMReadResult:
+    """Shared by every real provider once we have (or don't have) a
+    parsed {title, author, confidence} dict -- keeps the
+    malformed/unreadable/success classification identical across
+    providers instead of duplicating it three times."""
+    if parsed is None:
+        return VLMReadResult(
+            error="malformed_json", latency_ms=elapsed,
+            estimated_cost_usd=cost, provider=provider,
+        )
+
+    title = (parsed.get("title") or "").strip()
+    author = (parsed.get("author") or "").strip()
+    confidence = parsed.get("confidence")
+    try:
+        confidence = float(confidence) if confidence is not None else None
+    except (TypeError, ValueError):
+        confidence = None
+
+    if not title:
+        return VLMReadResult(
+            error="unreadable", model_confidence=confidence, latency_ms=elapsed,
+            estimated_cost_usd=cost, provider=provider,
+        )
+
+    return VLMReadResult(
+        title=title, author=author, model_confidence=confidence,
+        latency_ms=elapsed, estimated_cost_usd=cost, provider=provider,
+    )
+
+
 # Pricing as of writing (see README "Local vs. hosted routing" for the
-# source/date this was checked). Per-1M-token USD.
+# source/date this was checked). Per-1M-token USD, paid-tier rates.
 OPENAI_PRICING_PER_1M = {
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
 }
@@ -143,7 +184,7 @@ class OpenAIVisionClient:
             # thing this method must never propagate as an unhandled 500.
             elapsed = (time.perf_counter() - t0) * 1000
             is_timeout = "timeout" in type(exc).__name__.lower() or "timeout" in str(exc).lower()
-            logger.warning("VLM call failed (%s): %s", type(exc).__name__, exc)
+            logger.warning("OpenAI VLM call failed (%s): %s", type(exc).__name__, exc)
             return VLMReadResult(
                 error="timeout" if is_timeout else "api_error",
                 latency_ms=elapsed,
@@ -164,40 +205,114 @@ class OpenAIVisionClient:
                     + usage.completion_tokens / 1_000_000 * pricing["output"]
                 )
 
-        if parsed is None:
-            return VLMReadResult(
-                error="malformed_json", latency_ms=elapsed,
-                estimated_cost_usd=cost, provider=self.provider_name,
-            )
+        return _parsed_to_result(parsed, elapsed, cost, self.provider_name)
 
-        title = (parsed.get("title") or "").strip()
-        author = (parsed.get("author") or "").strip()
-        confidence = parsed.get("confidence")
+
+# Paid-tier pricing, checked as of writing -- see README. Irrelevant on
+# the free tier (the whole reason GeminiVisionClient exists here): free
+# tier calls cost $0 and don't return billable usage the same way, so
+# estimated_cost_usd is 0.0 unless GEMINI_BILLING_ENABLED is set,
+# signaling you've moved off the free tier for real.
+GEMINI_PRICING_PER_1M = {
+    "gemini-3.6-flash": {"input": 1.50, "output": 7.50},
+}
+
+
+class GeminiVisionClient:
+    """Google Gemini API, called directly over REST (no SDK dependency
+    -- one predictable POST is simpler than chasing SDK version churn
+    for a single endpoint). Added because Google AI Studio's free tier
+    needs no credit card, which OpenAI's does -- see README."""
+
+    provider_name = "gemini"
+    _ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+
+    def __init__(self, api_key: str | None = None, model: str | None = None, timeout: float | None = None):
+        self.api_key = api_key or settings.GEMINI_API_KEY
+        self.model = model or settings.GEMINI_VISION_MODEL
+        self.timeout = timeout or settings.VLM_TIMEOUT_SECONDS
+
+    def read_spine(self, crop: Image.Image) -> VLMReadResult:
+        import requests
+
+        t0 = time.perf_counter()
+        payload = {
+            "contents": [
+                {
+                    "parts": [
+                        {"text": PROMPT},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/jpeg",
+                                "data": base64.b64encode(_crop_to_jpeg_bytes(crop)).decode("ascii"),
+                            }
+                        },
+                    ]
+                }
+            ],
+            "generationConfig": {"temperature": 0, "maxOutputTokens": 200},
+        }
         try:
-            confidence = float(confidence) if confidence is not None else None
-        except (TypeError, ValueError):
-            confidence = None
+            response = requests.post(
+                self._ENDPOINT.format(model=self.model),
+                params={"key": self.api_key},
+                json=payload,
+                timeout=self.timeout,
+            )
+        except requests.exceptions.Timeout:
+            elapsed = (time.perf_counter() - t0) * 1000
+            return VLMReadResult(error="timeout", latency_ms=elapsed, provider=self.provider_name)
+        except Exception as exc:
+            elapsed = (time.perf_counter() - t0) * 1000
+            logger.warning("Gemini VLM call failed (%s): %s", type(exc).__name__, exc)
+            return VLMReadResult(error="api_error", latency_ms=elapsed, provider=self.provider_name)
 
-        if not title:
-            return VLMReadResult(
-                error="unreadable", model_confidence=confidence, latency_ms=elapsed,
-                estimated_cost_usd=cost, provider=self.provider_name,
+        elapsed = (time.perf_counter() - t0) * 1000
+
+        if response.status_code != 200:
+            logger.warning("Gemini API returned %s: %s", response.status_code, response.text[:300])
+            return VLMReadResult(error="api_error", latency_ms=elapsed, provider=self.provider_name)
+
+        try:
+            data = response.json()
+        except ValueError:
+            return VLMReadResult(error="malformed_json", latency_ms=elapsed, provider=self.provider_name)
+
+        usage = data.get("usageMetadata", {})
+        cost = 0.0
+        pricing = GEMINI_PRICING_PER_1M.get(self.model)
+        if pricing and settings.GEMINI_BILLING_ENABLED:
+            cost = (
+                usage.get("promptTokenCount", 0) / 1_000_000 * pricing["input"]
+                + usage.get("candidatesTokenCount", 0) / 1_000_000 * pricing["output"]
             )
 
-        return VLMReadResult(
-            title=title, author=author, model_confidence=confidence,
-            latency_ms=elapsed, estimated_cost_usd=cost, provider=self.provider_name,
-        )
+        # A response can come back with zero candidates -- most often
+        # the safety filter declining to describe the image, which is
+        # a legitimate "couldn't read this" outcome, not a crash.
+        candidates = data.get("candidates") or []
+        if not candidates:
+            reason = data.get("promptFeedback", {}).get("blockReason", "no candidates")
+            logger.info("Gemini returned no candidates (%s)", reason)
+            return VLMReadResult(error="unreadable", latency_ms=elapsed, estimated_cost_usd=cost, provider=self.provider_name)
+
+        try:
+            raw = candidates[0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError, TypeError):
+            return VLMReadResult(error="malformed_json", latency_ms=elapsed, estimated_cost_usd=cost, provider=self.provider_name)
+
+        parsed = _extract_json(raw)
+        return _parsed_to_result(parsed, elapsed, cost, self.provider_name)
 
 
 class MockVLMClient:
     """Offline stand-in: local Tesseract OCR on the crop, single best pass.
 
-    Used automatically when VLM_PROVIDER=mock (the default) or no
-    OPENAI_API_KEY is set, so the full pipeline -- including the review
-    screen for low-confidence reads -- is demoable with zero setup. Not
-    a claim that this is comparable in quality to the real hosted read;
-    it generally is not (see README).
+    Used automatically when VLM_PROVIDER=mock (the default) or no key
+    is configured for the selected provider, so the full pipeline --
+    including the review screen for low-confidence reads -- is
+    demoable with zero setup. Not a claim that this is comparable in
+    quality to a real hosted read; it generally is not (see README).
     """
 
     provider_name = "mock"
@@ -229,8 +344,16 @@ class MockVLMClient:
 
 
 def get_vlm_client():
-    if settings.VLM_PROVIDER == "openai" and settings.OPENAI_API_KEY:
-        return OpenAIVisionClient()
-    if settings.VLM_PROVIDER == "openai" and not settings.OPENAI_API_KEY:
+    provider = settings.VLM_PROVIDER
+
+    if provider == "openai":
+        if settings.OPENAI_API_KEY:
+            return OpenAIVisionClient()
         logger.warning("VLM_PROVIDER=openai but OPENAI_API_KEY is unset; falling back to mock")
+
+    elif provider == "gemini":
+        if settings.GEMINI_API_KEY:
+            return GeminiVisionClient()
+        logger.warning("VLM_PROVIDER=gemini but GEMINI_API_KEY is unset; falling back to mock")
+
     return MockVLMClient()

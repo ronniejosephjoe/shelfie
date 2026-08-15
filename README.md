@@ -51,11 +51,18 @@ python manage.py load_catalog      # loads ../catalog.csv into the DB
 python manage.py runserver 0.0.0.0:8000
 ```
 
-To use a real hosted VLM instead of the offline mock, set in `.env`:
+To use a real hosted VLM instead of the offline mock, set in `.env`
+(two supported providers -- pick one):
 
 ```
+# OpenAI (paid API, requires billing enabled on the account)
 VLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...
+
+# Gemini (Google AI Studio has a genuine free tier -- no credit card
+# needed, get a key at https://aistudio.google.com/apikey)
+VLM_PROVIDER=gemini
+GEMINI_API_KEY=...
 ```
 
 ### Frontend
@@ -184,13 +191,21 @@ YOLOv8n (or a similarly small COCO detector) behind the same
 `SpineDetector` interface and A/B the two on real photos -- see
 "What's unfinished."
 
-The hosted VLM client (`scanner/services/vlm_client.py`) defaults to
-`gpt-4o-mini` for a reasonable price/latency/accuracy balance among
-current hosted multimodal models, configurable via
-`OPENAI_VISION_MODEL`. When `VLM_PROVIDER=mock` (the default, and what
-runs with zero setup or API key) it falls back to a single Tesseract
-OCR pass on the crop instead -- clearly worse than a real hosted read,
-and its confidence is hard-capped below the auto-accept threshold so a
+The hosted VLM client (`scanner/services/vlm_client.py`) supports two
+real providers behind one interface, picked via `VLM_PROVIDER`:
+`openai` (`gpt-4o-mini` by default, configurable via
+`OPENAI_VISION_MODEL`) and `gemini` (`gemini-3.6-flash` by default,
+configurable via `GEMINI_VISION_MODEL`). Gemini was added specifically
+because Google AI Studio offers a genuine no-credit-card free tier for
+Flash-class models, which OpenAI's API does not -- the lower-friction
+option if you don't already have a funded API account. Both are
+implemented and unit-tested (`scanner/tests/test_vlm_client.py`
+mocks the network layer to exercise success, malformed JSON, safety-
+blocked/empty responses, HTTP errors, and timeouts for each). When
+`VLM_PROVIDER=mock` (the default, and what runs with zero setup or API
+key) it falls back to a single Tesseract OCR pass on the crop instead
+-- clearly worse than a real hosted read, and its confidence is hard-
+capped below the auto-accept threshold so a
 mock read can never sneak through as a silent auto-add. This exists so
 the full pipeline, including the review screen, is demoable without any
 key.
@@ -300,10 +315,14 @@ without that fix, `git pull` or check `shelfie_backend/settings.py` for
   handful of spines; a full shelf would benefit from calling them
   concurrently (`asyncio`/`concurrent.futures`) rather than the current
   for-loop in `pipeline.py`.
-- **No real hosted-VLM numbers.** Everything VLM-side in this repo ran
-  against the mock provider. The code path for a real key is complete
-  and unit-tested against mocked responses, but I have not seen it read
-  a real photo. First thing I'd do with a funded key.
+- **No real hosted-VLM numbers yet.** Everything VLM-side in this repo
+  was built and unit-tested against mocked responses (both providers --
+  see `scanner/tests/test_vlm_client.py`), but as of writing I have not
+  seen either one read a real photo. Both `openai` and `gemini` are
+  wired up and one command away from real numbers (`gemini` needs only
+  a free aistudio.google.com key, no billing) -- rerun
+  `scripts/bench_pipeline.py` with `VLM_PROVIDER` set for real and
+  replace the estimates in `docs/latency_cost_notes.md`.
 - **Crops aren't resized before the VLM call.** Every crop in the test
   photos is small enough to stay at 1 tile under gpt-4o-mini's pricing,
   but a real high-resolution phone photo's crops could be larger,

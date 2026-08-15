@@ -133,9 +133,21 @@ MATCH_AUTO_ACCEPT_THRESHOLD = float(os.environ.get("MATCH_AUTO_ACCEPT_THRESHOLD"
 MATCH_REVIEW_THRESHOLD = float(os.environ.get("MATCH_REVIEW_THRESHOLD", "0.55"))
 
 # Hosted vision-language model. See scanner/services/vlm_client.py.
-VLM_PROVIDER = os.environ.get("VLM_PROVIDER", "mock")  # "openai" or "mock"
+VLM_PROVIDER = os.environ.get("VLM_PROVIDER", "mock")  # "openai" | "gemini" | "mock"
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", "gpt-4o-mini")
+
+# Gemini: the free-tier-eligible option (no credit card needed at
+# aistudio.google.com), added specifically because OpenAI's API
+# requires billing to be enabled with no free quota. See vlm_client.py.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_VISION_MODEL = os.environ.get("GEMINI_VISION_MODEL", "gemini-3.6-flash")
+# Free-tier calls are $0 regardless of what GEMINI_PRICING_PER_1M says;
+# set this once you've actually enabled billing on the Google account,
+# so estimated_cost_usd stays honest instead of guessing paid-tier
+# rates against what might still be free traffic.
+GEMINI_BILLING_ENABLED = os.environ.get("GEMINI_BILLING_ENABLED", "false").lower() == "true"
+
 VLM_TIMEOUT_SECONDS = float(os.environ.get("VLM_TIMEOUT_SECONDS", "20"))
 
 LOGGING = {
