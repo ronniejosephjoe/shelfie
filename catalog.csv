@@ -1,0 +1,135 @@
+catalog_id,title,alt_titles,author,author_alt,year,format,series
+CAT0001,Harry Potter and the Philosopher's Stone,Harry Potter and the Sorcerer's Stone,J.K. Rowling,"Joanne Rowling|J. K. Rowling|Rowling, J.K.",1997,paperback,Harry Potter
+CAT0002,Harry Potter and the Chamber of Secrets,,J.K. Rowling,"Joanne Rowling|Rowling, J.K.",1998,paperback,Harry Potter
+CAT0003,Harry Potter and the Prisoner of Azkaban,,J.K. Rowling,"Joanne Rowling|Rowling, J.K.",1999,paperback,Harry Potter
+CAT0004,Harry Potter and the Goblet of Fire,,J.K. Rowling,"Rowling, J.K.",2000,hardcover,Harry Potter
+CAT0005,Harry Potter and the Order of the Phoenix,,J.K. Rowling,"Rowling, J.K.",2003,hardcover,Harry Potter
+CAT0006,Harry Potter and the Half-Blood Prince,,J.K. Rowling,"Rowling, J.K.",2005,hardcover,Harry Potter
+CAT0007,Harry Potter and the Deathly Hallows,,J.K. Rowling,"Rowling, J.K.",2007,hardcover,Harry Potter
+CAT0008,Harry Potter and the Philosopher's Stone,Harry Potter and the Sorcerer's Stone,J.K. Rowling,Joanne Rowling,2013,illustrated hardcover,Harry Potter
+CAT0009,Northern Lights,The Golden Compass,Philip Pullman,"Pullman, Philip",1995,paperback,His Dark Materials
+CAT0010,The Subtle Knife,,Philip Pullman,"Pullman, Philip",1997,paperback,His Dark Materials
+CAT0011,The Amber Spyglass,,Philip Pullman,"Pullman, Philip",2000,paperback,His Dark Materials
+CAT0012,The Fellowship of the Ring,,J.R.R. Tolkien,"John Ronald Reuel Tolkien|Tolkien, J.R.R.",1954,paperback,The Lord of the Rings
+CAT0013,The Two Towers,,J.R.R. Tolkien,"Tolkien, J.R.R.",1954,paperback,The Lord of the Rings
+CAT0014,The Return of the King,,J.R.R. Tolkien,"Tolkien, J.R.R.",1955,paperback,The Lord of the Rings
+CAT0015,The Lord of the Rings,The Lord of the Rings: The Complete Trilogy,J.R.R. Tolkien,"Tolkien, J.R.R.",1968,omnibus,The Lord of the Rings
+CAT0016,The Hobbit,"The Hobbit, or There and Back Again",J.R.R. Tolkien,"Tolkien, J.R.R.",1937,paperback,
+CAT0017,The Hobbit,"The Hobbit, or There and Back Again",J.R.R. Tolkien,"Tolkien, J.R.R.",2012,movie tie-in paperback,
+CAT0018,The Silmarillion,,J.R.R. Tolkien,"Tolkien, J.R.R.",1977,hardcover,
+CAT0019,Foundation,,Isaac Asimov,"Asimov, Isaac",1951,paperback,Foundation
+CAT0020,Foundation and Empire,,Isaac Asimov,"Asimov, Isaac",1952,paperback,Foundation
+CAT0021,Second Foundation,,Isaac Asimov,"Asimov, Isaac",1953,paperback,Foundation
+CAT0022,The Foundation Trilogy,"Foundation Trilogy: Foundation, Foundation and Empire, Second Foundation",Isaac Asimov,"Asimov, Isaac",1963,omnibus,Foundation
+CAT0023,The Alchemist,,Paulo Coelho,"Coelho, Paulo",1988,paperback,
+CAT0024,The Alchemist,The Secrets of the Immortal Nicholas Flamel: The Alchemyst,Michael Scott,"Scott, Michael",2007,paperback,The Secrets of the Immortal Nicholas Flamel
+CAT0025,Nightfall,,Isaac Asimov,"Asimov, Isaac|Asimov & Silverberg",1990,paperback,
+CAT0026,Nightfall,,Jake Halpern,"Halpern, Jake|Halpern & Kujawinski",2011,hardcover,Nightfall
+CAT0027,Dune,,Frank Herbert,"Herbert, Frank",1965,paperback,Dune
+CAT0028,Dune Messiah,,Frank Herbert,"Herbert, Frank",1969,paperback,Dune
+CAT0029,Children of Dune,,Frank Herbert,"Herbert, Frank",1976,paperback,Dune
+CAT0030,Gone,,Michael Grant,"Grant, Michael",2008,paperback,Gone
+CAT0031,Gone Girl,,Gillian Flynn,"Flynn, Gillian",2012,hardcover,
+CAT0032,Crime and Punishment,,Fyodor Dostoevsky,"Fyodor Dostoyevsky|Dostoevsky, Fyodor|Dostoyevsky, F.M.",1866,paperback,
+CAT0033,The Brothers Karamazov,,Fyodor Dostoevsky,"Fyodor Dostoyevsky|Dostoevsky, Fyodor",1880,paperback,
+CAT0034,War and Peace,,Leo Tolstoy,"Lev Tolstoy|Leo Nikolayevich Tolstoy|Tolstoy, Leo",1869,paperback,
+CAT0035,Anna Karenina,,Leo Tolstoy,"Lev Tolstoy|Tolstoy, Leo",1878,paperback,
+CAT0036,One Hundred Years of Solitude,Cien anos de soledad,Gabriel Garcia Marquez,"Gabriel García Márquez|Marquez, Gabriel Garcia|Márquez, Gabriel García",1967,paperback,
+CAT0037,Love in the Time of Cholera,,Gabriel Garcia Marquez,"Gabriel García Márquez|Marquez, Gabriel Garcia",1985,paperback,
+CAT0038,A Game of Thrones,,George R.R. Martin,"George R. R. Martin|Martin, George R.R.",1996,paperback,A Song of Ice and Fire
+CAT0039,A Clash of Kings,,George R.R. Martin,"George R. R. Martin|Martin, George R.R.",1998,paperback,A Song of Ice and Fire
+CAT0040,A Storm of Swords,,George R.R. Martin,George R. R. Martin,2000,paperback,A Song of Ice and Fire
+CAT0041,A Feast for Crows,,George R.R. Martin,George R. R. Martin,2005,hardcover,A Song of Ice and Fire
+CAT0042,A Dance with Dragons,,George R.R. Martin,George R. R. Martin,2011,hardcover,A Song of Ice and Fire
+CAT0043,1984,Nineteen Eighty-Four,George Orwell,"Orwell, George|Eric Arthur Blair",1949,paperback,
+CAT0044,Animal Farm,,George Orwell,"Orwell, George",1945,paperback,
+CAT0045,To Kill a Mockingbird,,Harper Lee,"Lee, Harper",1960,paperback,
+CAT0046,Pride and Prejudice,,Jane Austen,"Austen, Jane",1813,paperback,
+CAT0047,The Great Gatsby,,F. Scott Fitzgerald,"Francis Scott Fitzgerald|Fitzgerald, F. Scott",1925,paperback,
+CAT0048,Sapiens,Sapiens: A Brief History of Humankind,Yuval Noah Harari,"Harari, Yuval Noah",2011,paperback,
+CAT0049,Atomic Habits,Atomic Habits: An Easy and Proven Way to Build Good Habits and Break Bad Ones,James Clear,"Clear, James",2018,hardcover,
+CAT0050,The Da Vinci Code,,Dan Brown,"Brown, Dan",2003,paperback,Robert Langdon
+CAT0051,Angels & Demons,,Dan Brown,"Brown, Dan",2000,paperback,Robert Langdon
+CAT0052,The Girl with the Dragon Tattoo,Men Who Hate Women,Stieg Larsson,"Larsson, Stieg",2005,paperback,Millennium
+CAT0053,Where the Crawdads Sing,,Delia Owens,"Owens, Delia",2018,hardcover,
+CAT0054,Educated,Educated: A Memoir,Tara Westover,"Westover, Tara",2018,hardcover,
+CAT0055,Becoming,,Michelle Obama,"Obama, Michelle",2018,hardcover,
+CAT0056,The Catcher in the Rye,,J.D. Salinger,"Jerome David Salinger|Salinger, J.D.",1951,paperback,
+CAT0057,Brave New World,,Aldous Huxley,"Huxley, Aldous",1932,paperback,
+CAT0058,Fahrenheit 451,,Ray Bradbury,"Bradbury, Ray",1953,paperback,
+CAT0059,The Kite Runner,,Khaled Hosseini,"Hosseini, Khaled",2003,paperback,
+CAT0060,Life of Pi,,Yann Martel,"Martel, Yann",2001,paperback,
+CAT0061,The Book Thief,,Markus Zusak,"Zusak, Markus",2005,paperback,
+CAT0062,The Hunger Games,,Suzanne Collins,"Collins, Suzanne",2008,paperback,The Hunger Games
+CAT0063,Catching Fire,,Suzanne Collins,"Collins, Suzanne",2009,paperback,The Hunger Games
+CAT0064,Mockingjay,,Suzanne Collins,"Collins, Suzanne",2010,paperback,The Hunger Games
+CAT0065,Twilight,,Stephenie Meyer,"Meyer, Stephenie",2005,paperback,Twilight
+CAT0066,New Moon,,Stephenie Meyer,"Meyer, Stephenie",2006,paperback,Twilight
+CAT0067,Percy Jackson and the Lightning Thief,The Lightning Thief,Rick Riordan,"Riordan, Rick",2005,paperback,Percy Jackson
+CAT0068,The Road,,Cormac McCarthy,"McCarthy, Cormac",2006,paperback,
+CAT0069,Slaughterhouse-Five,Slaughterhouse Five,Kurt Vonnegut,"Vonnegut, Kurt|Kurt Vonnegut Jr.",1969,paperback,
+CAT0070,Catch-22,Catch 22,Joseph Heller,"Heller, Joseph",1961,paperback,
+CAT0071,"Thinking, Fast and Slow",Thinking Fast and Slow,Daniel Kahneman,"Kahneman, Daniel",2011,paperback,
+CAT0072,Outliers,Outliers: The Story of Success,Malcolm Gladwell,"Gladwell, Malcolm",2008,hardcover,
+CAT0073,The Subtle Art of Not Giving a F*ck,The Subtle Art of Not Giving a Fuck,Mark Manson,"Manson, Mark",2016,paperback,
+CAT0074,Man's Search for Meaning,,Viktor Frankl,"Viktor E. Frankl|Frankl, Viktor",1946,paperback,
+CAT0075,The Power of Habit,,Charles Duhigg,"Duhigg, Charles",2012,paperback,
+CAT0076,Rich Dad Poor Dad,,Robert Kiyosaki,"Robert T. Kiyosaki|Kiyosaki, Robert",1997,paperback,
+CAT0077,The 7 Habits of Highly Effective People,Seven Habits of Highly Effective People,Stephen Covey,"Stephen R. Covey|Covey, Stephen",1989,paperback,
+CAT0078,Ender's Game,,Orson Scott Card,"Card, Orson Scott",1985,paperback,Ender's Saga
+CAT0079,Neuromancer,,William Gibson,"Gibson, William",1984,paperback,Sprawl
+CAT0080,Snow Crash,,Neal Stephenson,"Stephenson, Neal",1992,paperback,
+CAT0081,The Martian,,Andy Weir,"Weir, Andy",2011,paperback,
+CAT0082,Project Hail Mary,,Andy Weir,"Weir, Andy",2021,hardcover,
+CAT0083,Circe,,Madeline Miller,"Miller, Madeline",2018,hardcover,
+CAT0084,The Song of Achilles,,Madeline Miller,"Miller, Madeline",2011,paperback,
+CAT0085,Normal People,,Sally Rooney,"Rooney, Sally",2018,paperback,
+CAT0086,It Ends with Us,,Colleen Hoover,"Hoover, Colleen",2016,paperback,It Ends with Us
+CAT0087,The Silent Patient,,Alex Michaelides,"Michaelides, Alex",2019,hardcover,
+CAT0088,Gone Girl,,Gillian Flynn,"Flynn, Gillian",2012,movie tie-in paperback,
+CAT0089,The Girl on the Train,,Paula Hawkins,"Hawkins, Paula",2015,hardcover,
+CAT0090,Big Little Lies,,Liane Moriarty,"Moriarty, Liane",2014,paperback,
+CAT0091,Little Fires Everywhere,,Celeste Ng,"Ng, Celeste",2017,hardcover,
+CAT0092,The Handmaid's Tale,,Margaret Atwood,"Atwood, Margaret",1985,paperback,The Handmaid's Tale
+CAT0093,The Testaments,,Margaret Atwood,"Atwood, Margaret",2019,hardcover,The Handmaid's Tale
+CAT0094,Never Let Me Go,,Kazuo Ishiguro,"Ishiguro, Kazuo",2005,paperback,
+CAT0095,The Remains of the Day,,Kazuo Ishiguro,"Ishiguro, Kazuo",1989,paperback,
+CAT0096,Beloved,,Toni Morrison,"Morrison, Toni",1987,paperback,
+CAT0097,The Color Purple,,Alice Walker,"Walker, Alice",1982,paperback,
+CAT0098,Of Mice and Men,,John Steinbeck,"Steinbeck, John",1937,paperback,
+CAT0099,East of Eden,,John Steinbeck,"Steinbeck, John",1952,paperback,
+CAT0100,The Grapes of Wrath,,John Steinbeck,"Steinbeck, John",1939,paperback,
+CAT0101,The Bell Jar,,Sylvia Plath,"Plath, Sylvia",1963,paperback,
+CAT0102,One Flew Over the Cuckoo's Nest,,Ken Kesey,"Kesey, Ken",1962,paperback,
+CAT0103,"The Lion, the Witch and the Wardrobe",,C.S. Lewis,"Clive Staples Lewis|Lewis, C.S.",1950,paperback,The Chronicles of Narnia
+CAT0104,Prince Caspian,,C.S. Lewis,"Lewis, C.S.",1951,paperback,The Chronicles of Narnia
+CAT0105,The Chronicles of Narnia,The Chronicles of Narnia: The Complete Series,C.S. Lewis,"Lewis, C.S.",2001,omnibus,The Chronicles of Narnia
+CAT0106,Good Omens,"Good Omens: The Nice and Accurate Prophecies of Agnes Nutter, Witch",Terry Pratchett and Neil Gaiman,"Gaiman, Neil and Pratchett, Terry|Neil Gaiman & Terry Pratchett",1990,paperback,
+CAT0107,American Gods,,Neil Gaiman,"Gaiman, Neil",2001,paperback,
+CAT0108,Coraline,,Neil Gaiman,"Gaiman, Neil",2002,paperback,
+CAT0109,The Ocean at the End of the Lane,,Neil Gaiman,"Gaiman, Neil",2013,hardcover,
+CAT0110,Stardust,,Neil Gaiman,"Gaiman, Neil",1997,paperback,
+CAT0111,A Song of Ice and Fire,A Game of Thrones: The Story Continues,George R.R. Martin,George R. R. Martin,2016,omnibus,A Song of Ice and Fire
+CAT0112,The Silmarillion,,J.R.R. Tolkien,"Tolkien, J.R.R.",1999,illustrated hardcover,
+CAT0113,Emma,,Jane Austen,"Austen, Jane",1815,paperback,
+CAT0114,Sense and Sensibility,,Jane Austen,"Austen, Jane",1811,paperback,
+CAT0115,Jane Eyre,,Charlotte Bronte,"Charlotte Brontë|Bronte, Charlotte",1847,paperback,
+CAT0116,Wuthering Heights,,Emily Bronte,"Emily Brontë|Bronte, Emily",1847,paperback,
+CAT0117,Frankenstein,"Frankenstein; or, The Modern Prometheus",Mary Shelley,"Shelley, Mary",1818,paperback,
+CAT0118,Dracula,,Bram Stoker,"Stoker, Bram",1897,paperback,
+CAT0119,The Picture of Dorian Gray,,Oscar Wilde,"Wilde, Oscar",1890,paperback,
+CAT0120,Moby-Dick,"Moby Dick; or, The Whale",Herman Melville,"Melville, Herman",1851,paperback,
+CAT0121,The Odyssey,,Homer,,-700,paperback,
+CAT0122,Meditations,,Marcus Aurelius,"Aurelius, Marcus",180,paperback,
+CAT0123,The Stranger,L'Etranger|The Outsider,Albert Camus,"Camus, Albert",1942,paperback,
+CAT0124,Siddhartha,,Hermann Hesse,"Hesse, Hermann",1922,paperback,
+CAT0125,The Little Prince,Le Petit Prince,Antoine de Saint-Exupery,"Antoine de Saint-Exupéry|Saint-Exupery, Antoine de",1943,hardcover,
+CAT0126,All the Light We Cannot See,,Anthony Doerr,"Doerr, Anthony",2014,hardcover,
+CAT0127,The Night Circus,,Erin Morgenstern,"Morgenstern, Erin",2011,paperback,
+CAT0128,The Nightingale,,Kristin Hannah,"Hannah, Kristin",2015,hardcover,
+CAT0129,A Man Called Ove,En man som heter Ove,Fredrik Backman,"Backman, Fredrik",2012,paperback,
+CAT0130,The Vanishing Half,,Brit Bennett,"Bennett, Brit",2020,hardcover,
+CAT0131,Klara and the Sun,,Kazuo Ishiguro,"Ishiguro, Kazuo",2021,hardcover,
+CAT0132,The Midnight Library,,Matt Haig,"Haig, Matt",2020,hardcover,
+CAT0133,Verity,,Colleen Hoover,"Hoover, Colleen",2018,paperback,
+CAT0134,Atomic Habits,Atomic Habits: An Easy and Proven Way to Build Good Habits and Break Bad Ones,James Clear,"Clear, James",2018,paperback,
