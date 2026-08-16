@@ -1,5 +1,3 @@
-import { Platform } from "react-native";
-
 import { API_BASE_URL } from "./config";
 
 /**
@@ -26,26 +24,25 @@ async function handle(response) {
 
 export async function uploadScan(photo) {
   // photo: { uri, fileName?, mimeType? } from expo-image-picker
+  //
+  // Every platform goes through the same fetch-to-Blob path now. This
+  // used to branch: web fetched the uri into a real Blob (browsers have
+  // no polyfill for React Native's classic FormData.append(name, {
+  // uri, name, type }) object shape), while native used that classic
+  // object shape directly, on the assumption it still worked there.
+  // It doesn't, at least not on this RN/Expo Go version -- confirmed by
+  // actually running this on a real iOS Simulator, not guessed: it
+  // failed with "Unsupported FormDataPart implementation" on the very
+  // first real device-class test, meaning this path had never actually
+  // been exercised end to end before. `fetch(uri).then(r => r.blob())`
+  // works identically on both web and native RN's fetch implementation
+  // for a local file:// or blob:/data: uri, so there's no longer a
+  // reason to have two code paths -- one working implementation beats
+  // one tested path and one that was silently never run.
   const form = new FormData();
-
-  if (Platform.OS === "web") {
-    // React Native's FormData.append(name, { uri, name, type }) shape is
-    // handled by a native polyfill that doesn't exist in a real browser --
-    // on web, expo-image-picker's uri is a blob:/data: URL, and the only
-    // way to attach it correctly is to fetch that URL back into an actual
-    // Blob and append that. Skipping this branch is exactly the kind of
-    // bug that works fine on a phone and silently sends an empty request
-    // on web (found by actually running this in a browser, not guessed).
-    const blobResponse = await fetch(photo.uri);
-    const blob = await blobResponse.blob();
-    form.append("image", blob, photo.fileName || "shelf.jpg");
-  } else {
-    form.append("image", {
-      uri: photo.uri,
-      name: photo.fileName || "shelf.jpg",
-      type: photo.mimeType || "image/jpeg",
-    });
-  }
+  const blobResponse = await fetch(photo.uri);
+  const blob = await blobResponse.blob();
+  form.append("image", blob, photo.fileName || "shelf.jpg");
 
   let response;
   try {
