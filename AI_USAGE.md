@@ -186,15 +186,32 @@ surfaced doing this: the terminal's default Node (20.10.0) was too old
 for Expo SDK 57 (same class of problem as the earlier Node fix for the
 web preview), fixed the same way, by running through `nvm use 22`.
 
+**Image upload was broken on native iOS too -- found by actually
+running a scan, not by assuming the earlier web fix covered it.**
+Immediately after confirming the app launched, running an actual scan
+on the iOS Simulator failed with `Unsupported FormDataPart
+implementation`. The native upload path had been left using React
+Native's classic `FormData.append(name, { uri, name, type })`
+object-shape trick, on an untested assumption that it still worked --
+it doesn't on this RN/Expo Go version's networking stack. It's the
+same underlying class of bug as the earlier web-upload fix (that
+object-shape trick has no real equivalent outside a true bridge-native
+context), just never actually exercised on a real device or simulator
+until this session. Fixed by removing the platform branch entirely and
+using `fetch(uri).then(r => r.blob())` unconditionally -- the same
+approach already proven correct on web, and now verified working on
+iOS too: picked a real test photo from the simulator's photo library,
+ran a full scan, and got a completed review screen with 5 correctly
+read and auto-matched books (Dune, The Hobbit, Gone Girl, Atomic
+Habits, Beloved), confirmed with a screenshot of the actual result,
+not just an absence of errors.
+
 ## What the AI did not do
 
-Test on a real Android device or simulator, or run a full scan through
-the iOS Simulator specifically (the app was launched and confirmed
-rendering there; a full capture -> review -> library pass through it
-specifically has not been done, though the identical code path has
-been run end to end through the web preview with a real photo and a
-real Gemini key). Both are stated plainly here rather than left to be
-discovered later, alongside the detector-recall limitation, which is
-real, measured, and not yet fully solved -- see the debugging section
-above and `docs/latency_cost_notes.md` for exactly what's still weak
-and why.
+Test on a real Android device or simulator. That's stated plainly here
+rather than left to be discovered later, alongside the detector-recall
+limitation, which is real, measured, and not yet fully solved -- see
+the debugging section above and `docs/latency_cost_notes.md` for
+exactly what's still weak and why. A full capture -> review -> library
+pass has now been run end to end on both the web preview and a real
+iOS Simulator, with a real photo and a real Gemini key, on both.
