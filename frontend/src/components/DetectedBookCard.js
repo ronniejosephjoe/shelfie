@@ -19,8 +19,13 @@ const READ_ERROR_MESSAGES = {
  */
 export default function DetectedBookCard({ book, onDecide }) {
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(book.match_title || book.read_title || "");
-  const [author, setAuthor] = useState(book.match_author || book.read_author || "");
+  // What's actually printed on the spine (read_title/read_author) is
+  // ground truth; match_title/match_author is only the catalog's best
+  // *guess* at that -- often a completely different, unrelated book
+  // when the catalog has no real match (see match_tier). Editing
+  // should start from what was actually read, not the guess.
+  const [title, setTitle] = useState(book.read_title || book.match_title || "");
+  const [author, setAuthor] = useState(book.read_author || book.match_author || "");
   const [busy, setBusy] = useState(false);
 
   const isFinal = ["auto_added", "confirmed", "corrected", "discarded"].includes(book.review_status);
@@ -61,17 +66,37 @@ export default function DetectedBookCard({ book, onDecide }) {
           )}
           {book.review_status === "pending_review" && !editing && (
             <>
+              {/* Primary display is always what was actually read off the
+                  spine, not the catalog's guess at it -- a wrong or
+                  unmatched catalog guess (match_tier "unmatched"/"review")
+                  used to silently replace a perfectly correct read here,
+                  which defeats the point of a review screen: the human
+                  needs to see the real read to judge it, not the system's
+                  best-effort catalog translation of it. Found by actually
+                  scanning a real shelf whose books mostly aren't in the
+                  demo catalog -- every card showed an unrelated book. */}
               <Text style={styles.title}>
-                {book.match_title || book.read_title || "(no title read)"}
+                {book.read_title || book.match_title || "(no title read)"}
               </Text>
-              {!!(book.match_author || book.read_author) && (
-                <Text style={styles.author}>{book.match_author || book.read_author}</Text>
+              {!!(book.read_author || book.match_author) && (
+                <Text style={styles.author}>{book.read_author || book.match_author}</Text>
               )}
               {!!book.read_error && (
                 <Text style={styles.errorText}>
                   {READ_ERROR_MESSAGES[book.read_error] || book.read_error}
                 </Text>
               )}
+              {!!book.match_title &&
+                book.match_title !== book.read_title &&
+                book.match_tier !== "auto" && (
+                  <Text style={styles.catalogGuess}>
+                    Closest catalog match: {book.match_title}
+                    {book.match_author ? ` — ${book.match_author}` : ""}
+                    {typeof book.match_score === "number"
+                      ? ` (${Math.round(book.match_score * 100)}%)`
+                      : ""}
+                  </Text>
+                )}
             </>
           )}
           {editing && (
@@ -155,6 +180,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 15, fontWeight: "700", color: "#111827" },
   author: { fontSize: 13, color: "#4B5563", marginTop: 2 },
   errorText: { fontSize: 12, color: "#B91C1C", marginTop: 4, fontStyle: "italic" },
+  catalogGuess: { fontSize: 12, color: "#6B7280", marginTop: 4, fontStyle: "italic" },
   discardedText: { fontSize: 14, color: "#9CA3AF", fontStyle: "italic" },
   editForm: { gap: 6 },
   input: { borderWidth: 1, borderColor: "#D1D5DB", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 14 },
