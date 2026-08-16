@@ -364,8 +364,14 @@ without that fix, `git pull` or check `shelfie_backend/settings.py` for
   creating), cut for time.
 - **React Navigation swap**, if a real nav stack (deep links, back
   gestures, etc.) becomes worth the added native dependencies.
-- **Never run on a real device or simulator.** I verified the frontend
-  bundles cleanly (Metro resolved all 593 modules via `expo export
-  --platform ios`) but could not launch it in this environment --
-  see the Expo frontend commit for exactly what that check did and
-  didn't cover.
+- **Run on a real iOS Simulator, but not through a full scan there
+  specifically.** `npx expo start --ios` launched the app on a real
+  iPhone 16 Pro simulator (Expo Go, SDK 57.0.0, matching this project
+  exactly), bundled cleanly, and rendered the Capture screen --
+  confirmed with a screenshot of the actual running simulator, not
+  just a clean `expo export` exit code (which is all that had been
+  verified earlier -- see AI_USAGE.md for both). The identical code
+  path has been run end to end (capture -> review -> library, real
+  photo, real Gemini key) through the Expo web preview; a full pass
+  through the iOS Simulator specifically, and any Android testing,
+  has not been done.

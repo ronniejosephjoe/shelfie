@@ -173,14 +173,28 @@ uncommitted local fix -- `react-dom`/`react-native-web`, needed for the
 Expo web preview to run at all -- was caught this same way and folded
 into a proper commit instead of being lost).
 
+**Never run on a real iOS Simulator, until it was.** The frontend had
+only ever been verified by `expo export --platform ios` successfully
+bundling all 593 modules -- a real check, but not the same as actually
+launching it. Later in the same session, on the real Mac, it was:
+`npx expo start --ios` built and deployed to a real iPhone 16 Pro
+simulator via Expo Go (SDK 57.0.0, matching the project's declared SDK
+exactly), bundled 720 modules in ~16.5s, and rendered the Capture
+screen correctly -- confirmed with an actual screenshot of the running
+simulator, not just a clean exit code. One real environment issue
+surfaced doing this: the terminal's default Node (20.10.0) was too old
+for Expo SDK 57 (same class of problem as the earlier Node fix for the
+web preview), fixed the same way, by running through `nvm use 22`.
+
 ## What the AI did not do
 
-Test on a real iOS or Android device or simulator -- the app has been
-run and verified through Expo's web preview and a real backend on a
-real Mac, with a real hosted VLM key and a real bookshelf photo, but
-never through an actual mobile simulator or device. That's stated
-plainly here rather than left to be discovered later, and it's called
-out again in the README's "what's unfinished" section along with the
-detector-recall limitation, which is real, measured, and not yet fully
-solved -- see the debugging section above and `docs/latency_cost_notes.md`
-for exactly what's still weak and why.
+Test on a real Android device or simulator, or run a full scan through
+the iOS Simulator specifically (the app was launched and confirmed
+rendering there; a full capture -> review -> library pass through it
+specifically has not been done, though the identical code path has
+been run end to end through the web preview with a real photo and a
+real Gemini key). Both are stated plainly here rather than left to be
+discovered later, alongside the detector-recall limitation, which is
+real, measured, and not yet fully solved -- see the debugging section
+above and `docs/latency_cost_notes.md` for exactly what's still weak
+and why.
